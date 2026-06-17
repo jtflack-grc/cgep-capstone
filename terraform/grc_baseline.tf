@@ -18,7 +18,7 @@ resource "aws_kms_key" "phi" {
     Name        = "${local.name_prefix}-phi-cmk-${local.suffix}"
     Control     = "HIPAA-164.312-a-2-iv"
     DataClass   = "phi"
-    EvidenceFor = "GAP-01,GAP-02"
+    EvidenceFor = "GAP-01-GAP-02"
   }
 }
 

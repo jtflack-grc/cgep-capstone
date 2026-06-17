@@ -225,9 +225,6 @@ resource "aws_lambda_function" "intake" {
   filename         = data.archive_file.handler.output_path
   source_code_hash = data.archive_file.handler.output_base64sha256
   timeout          = 10
-
-  reserved_concurrent_executions = 10
-
   environment {
     variables = {
       INTAKE_TABLE  = aws_dynamodb_table.intake.name
@@ -260,7 +257,7 @@ resource "aws_lambda_function" "intake" {
   ]
 
   tags = {
-    EvidenceFor = "GAP-05,GAP-06,GAP-07"
+    EvidenceFor = "GAP-05-GAP-06-GAP-07"
   }
 }
 

@@ -1,80 +1,46 @@
-# cgep-app-starter
+# CGE-P Capstone — Acme Health Patient Intake API
 
-> Patient Intake API for "Acme Health". The deliberately-flawed workload your **CGE-P capstone** wraps with GRC controls.
+This repo is a governed fork/derivative of `GRCEngClub/cgep-app-starter`. It wraps the inherited Patient Intake API with a HIPAA-oriented GRC engineering baseline: Terraform controls, Rego policy gates, GitHub Actions evidence generation, Cosign signing, S3 Object Lock preservation, and OSCAL traceability.
 
-## What this is
-
-A minimal AWS workload: VPC, Lambda, API Gateway, DynamoDB, S3. It ingests patient intake submissions over HTTPS. Think of it as a system you have just inherited from an engineering team and been asked to make audit-defensible.
-
-This repository ships **non-compliant on purpose**. Your job in the capstone is not to rewrite this app. Your job is to wrap it with the four CGE-P layers (Terraform GRC baseline, Rego policies, GitHub Actions evidence pipeline, OSCAL component) so the same workload becomes audit-defensible against HIPAA, SOC 2, and CMMC L2.
-
-## The deploy gate
-
-If you cannot deploy this starter, you cannot pass the capstone. Real GRC engineers inherit working systems. Step zero is making the system run.
+## Quick verification
 
 ```bash
-git clone https://github.com/GRCEngClub/cgep-app-starter
-cd cgep-app-starter
-
-# Confirm you're authenticated to the right account:
-make creds AWS_PROFILE=<your-sandbox-profile>
-
-make deploy AWS_PROFILE=<your-sandbox-profile>
-make test    AWS_PROFILE=<your-sandbox-profile>
+opa test ./policies
+cd terraform
+terraform init
+terraform validate
+terraform plan -out=tfplan
+terraform show -json tfplan > ../evidence/plan.json
+cd ..
+conftest test --policy policies evidence/plan.json
 ```
 
-> **AWS SSO note:** if your profile is SSO-based, Terraform's AWS provider can fail to read it directly with `failed to find SSO session section`. The Makefile's `eval $(aws configure export-credentials)` pattern handles this. If you're running `terraform` commands by hand, do the same export first.
+## Evidence verification
 
-Expected output of `make test`:
+Replace the values below with the submitted run ID and vault name.
 
-```json
-{
-    "submission_id": "f1e3...",
-    "status": "received"
-}
+```bash
+EVIDENCE_VAULT=<vault-name> bash scripts/verify-evidence.sh <run-id> --profile <aws-profile>
 ```
 
-When you're done exploring: `make destroy`.
+Expected final line:
 
-## What you build on top
-
-Fork the repo into your own `cgep-capstone` and add:
-
-1. **Layer 1 — GRC baseline (Terraform).** KMS keys, an S3 evidence vault with Object Lock, a CloudTrail trail. Bring this starter's data stores under your CMK.
-2. **Layer 2 — OPA policy suite (Rego).** Five or more policies that catch the named gaps in [GAPS.md](GAPS.md). Each policy maps to at least one control from the framework you choose.
-3. **Layer 3 — GitHub Actions pipeline.** Plan → Conftest gate → apply → Cosign sign → upload to vault.
-4. **Layer 4 — OSCAL component.** A `component-definition.json` describing how your governed system implements its controls.
-
-Full brief: `docs/labs/07_01_capstone_brief.md` in the course content repo.
-
-## Framework mapping is required
-
-Your capstone must declare a primary framework: **HIPAA Security Rule**, **SOC 2 Trust Services Criteria**, or **CMMC Level 2**. Every policy carries at least one control ID from your chosen framework. Your OSCAL component's `control-implementations` reference your framework's catalog.
-
-A starter mapping is in [FRAMEWORKS.md](FRAMEWORKS.md). It is not the only valid mapping. You're expected to defend yours.
-
-## Cost
-
-Roughly $0 if destroyed within an hour. Lambda + API Gateway + DynamoDB + S3 are all pay-per-use, and an empty deployment generates no traffic. CloudTrail (which you add) costs cents.
-
-## Layout
-
-```
-cgep-app-starter/
-├── README.md            # this file
-├── WORKLOAD.md          # what the API does
-├── GAPS.md              # the named flaws your policies must catch
-├── FRAMEWORKS.md        # HIPAA / SOC 2 / CMMC mapping primer
-├── Makefile             # make deploy | test | destroy
-├── terraform/
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── lambda/handler.py
-└── test/
-    └── intake.sh
+```text
+CHAIN INTACT for run <run-id>
 ```
 
-## License
+## OSCAL validation
 
-MIT. Fork freely. Submissions remain learners' own work.
+```bash
+pip install compliance-trestle
+trestle validate -f oscal/components/acme-health-intake-component-definition.json
+trestle validate -f oscal/profiles/hipaa-minimum-profile.json
+```
+
+## Scope
+
+Primary framework: HIPAA Security Rule.
+
+Closed gaps: GAP-01, GAP-02, GAP-03, GAP-04, GAP-05, GAP-06, GAP-07.
+
+Deferred: GAP-08, documented in `WRITEUP.md`.

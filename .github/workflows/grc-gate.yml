@@ -1,0 +1,180 @@
+name: grc-gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  AWS_REGION: us-east-1
+  TF_WORKING_DIR: terraform
+
+jobs:
+  grc-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+          terraform_wrapper: false
+
+      - name: Install Conftest
+        run: |
+          curl -fsSL https://github.com/open-policy-agent/conftest/releases/download/v0.50.0/conftest_0.50.0_Linux_x86_64.tar.gz | sudo tar -xz -C /usr/local/bin conftest
+          conftest --version
+
+      - name: Install OPA
+        run: |
+          curl -fsSL -o opa https://openpolicyagent.org/downloads/v0.60.0/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/opa
+          opa version
+
+      - name: Install tfsec
+        run: |
+          curl -fsSL https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64 -o tfsec
+          chmod +x tfsec
+          sudo mv tfsec /usr/local/bin/tfsec
+          tfsec --version
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.2.4
+
+      - name: Plan the Terraform
+        id: plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence
+          terraform init -input=false
+          terraform fmt -check -recursive
+          terraform validate
+          terraform plan -out=tfplan -no-color 2>&1 | tee ../evidence/plan.txt
+          terraform show -json tfplan > ../evidence/plan.json
+          terraform version > ../evidence/terraform-version.txt
+          git log -1 --pretty=full > ../evidence/commit.txt
+
+      - name: Policy check with Conftest
+        id: policy
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          opa test ./policies | tee evidence/opa-test.txt
+          conftest test --policy policies --output=json evidence/plan.json > evidence/opa-results.json || true
+          python3 - <<'PY'
+          import json, os
+          data = json.load(open('evidence/opa-results.json'))
+          failures = []
+          for result in data:
+              failures.extend(result.get('failures') or [])
+          print(f"conftest policy failures: {len(failures)}")
+          with open('evidence/policy-status.txt','w') as f:
+              f.write('failed\n' if failures else 'passed\n')
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write(f"POLICY_FAILED={'true' if failures else 'false'}\n")
+          PY
+
+      - name: Additional scan with tfsec
+        id: tfsec
+        if: always()
+        run: |
+          set -euo pipefail
+          tfsec terraform --format sarif --out evidence/tfsec.sarif || true
+          echo "tfsec output captured; Rego policies are the capstone blocking gate." | tee evidence/tfsec-note.txt
+
+      - name: Apply on merge to main
+        id: apply
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.POLICY_FAILED == 'false'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          set -euo pipefail
+          terraform apply -auto-approve tfplan 2>&1 | tee ../evidence/apply.txt
+          terraform show -json > ../evidence/state.json
+          terraform output -json > ../evidence/outputs.json
+
+      - name: Record non-apply context
+        if: always()
+        run: |
+          if [[ ! -f evidence/apply.txt ]]; then
+            echo "Apply did not run. Expected for pull_request events or failed policy gates." > evidence/apply.txt
+          fi
+          if [[ ! -f evidence/state.json ]]; then
+            echo "{}" > evidence/state.json
+          fi
+          if [[ ! -f evidence/outputs.json ]]; then
+            echo "{}" > evidence/outputs.json
+          fi
+
+      - name: Sign evidence bundle with Cosign
+        id: sign
+        if: always()
+        run: |
+          set -euo pipefail
+          BUNDLE="evidence-${GITHUB_RUN_ID}-${GITHUB_SHA}.tar.gz"
+          tar czf "${BUNDLE}" evidence
+          sha256sum "${BUNDLE}" | awk '{print $1}' > "${BUNDLE}.sha256"
+          cosign sign-blob --yes --bundle "${BUNDLE}.sig.bundle" "${BUNDLE}"
+          echo "BUNDLE=${BUNDLE}" >> "$GITHUB_ENV"
+
+      - name: Upload signed bundle to evidence vault
+        id: upload
+        if: always()
+        env:
+          VAULT: ${{ vars.EVIDENCE_VAULT }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${VAULT}" ]]; then
+            echo "EVIDENCE_VAULT repo variable is not set." >&2
+            exit 1
+          fi
+          KEY_PREFIX="runs/${GITHUB_RUN_ID}"
+          aws s3 cp "${BUNDLE}" "s3://${VAULT}/${KEY_PREFIX}/${BUNDLE}"
+          aws s3 cp "${BUNDLE}.sha256" "s3://${VAULT}/${KEY_PREFIX}/${BUNDLE}.sha256"
+          aws s3 cp "${BUNDLE}.sig.bundle" "s3://${VAULT}/${KEY_PREFIX}/${BUNDLE}.sig.bundle"
+          VERSION_ID=$(aws s3api head-object --bucket "${VAULT}" --key "${KEY_PREFIX}/${BUNDLE}" --query VersionId --output text)
+          cat > receipt.json <<JSON
+          {
+            "run_id": "${GITHUB_RUN_ID}",
+            "commit_sha": "${GITHUB_SHA}",
+            "vault": "${VAULT}",
+            "key": "${KEY_PREFIX}/${BUNDLE}",
+            "version_id": "${VERSION_ID}",
+            "bundle": "${BUNDLE}",
+            "sha256_file": "${BUNDLE}.sha256",
+            "sigstore_bundle": "${BUNDLE}.sig.bundle"
+          }
+          JSON
+          aws s3 cp receipt.json "s3://${VAULT}/${KEY_PREFIX}/receipt.json"
+          cp receipt.json evidence/receipt.json
+
+      - name: Enforce gate result
+        if: always()
+        run: |
+          set -euo pipefail
+          STATUS=$(cat evidence/policy-status.txt 2>/dev/null || echo failed)
+          if [[ "${STATUS}" != "passed" ]]; then
+            echo "Policy gate failed. Evidence was still signed and uploaded."
+            exit 1
+          fi
+          echo "Policy gate passed."

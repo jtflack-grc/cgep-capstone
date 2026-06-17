@@ -111,8 +111,16 @@ resource "aws_dynamodb_table" "intake" {
     type = "S"
   }
 
-  # No server_side_encryption block. Defaults to AWS-owned key.
-  # GAP-02: capstone learner expected to add this with a customer-owned key.
+  # GAP-02 closed: PHI table uses a customer-managed KMS key.
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.phi.arn
+  }
+
+  tags = {
+    EvidenceFor = "GAP-02"
+    Control     = "HIPAA-164.312-a-2-iv"
+  }
 }
 
 ######################################################################
@@ -172,32 +180,51 @@ resource "aws_iam_role_policy" "lambda_inline" {
   name = "intake-data-access"
   role = aws_iam_role.lambda.id
 
+  # GAP-07 closed: least privilege replaces dynamodb:* and s3:*.
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
+        Sid      = "WriteSubmissionsOnly"
         Effect   = "Allow"
-        Action   = "dynamodb:*"
+        Action   = ["dynamodb:PutItem"]
         Resource = aws_dynamodb_table.intake.arn
       },
       {
+        Sid      = "WriteUploadObjectsOnly"
         Effect   = "Allow"
-        Action   = "s3:*"
-        Resource = ["${aws_s3_bucket.uploads.arn}", "${aws_s3_bucket.uploads.arn}/*"]
+        Action   = ["s3:PutObject"]
+        Resource = "${aws_s3_bucket.uploads.arn}/uploads/*"
+      },
+      {
+        Sid      = "SendToDeadLetterQueue"
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
+        Resource = aws_sqs_queue.lambda_dlq.arn
+      },
+      {
+        Sid    = "UsePhiKmsKeyForWrites"
+        Effect = "Allow"
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = aws_kms_key.phi.arn
       }
     ]
   })
 }
 
 resource "aws_lambda_function" "intake" {
-  function_name    = "${local.name_prefix}-handler-${local.suffix}"
-  role             = aws_iam_role.lambda.arn
-  handler          = "handler.handler"
-  runtime          = "python3.12"
+  function_name = "${local.name_prefix}-handler-${local.suffix}"
+  role          = aws_iam_role.lambda.arn
+  handler       = "handler.handler"
+  runtime       = "python3.12"
+
   filename         = data.archive_file.handler.output_path
   source_code_hash = data.archive_file.handler.output_base64sha256
   timeout          = 10
-
   environment {
     variables = {
       INTAKE_TABLE  = aws_dynamodb_table.intake.name
@@ -205,8 +232,33 @@ resource "aws_lambda_function" "intake" {
     }
   }
 
-  # GAP-05: no vpc_config block. Learner expected to add one referencing
-  # aws_subnet.private[*] and a hardened security group.
+  # GAP-05 closed: Lambda runs inside the starter VPC private subnets.
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+
+  # GAP-06 closed: failed async events route to a DLQ.
+  dead_letter_config {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
+
+  # GAP-06 closed: tracing enabled for operational visibility.
+  tracing_config {
+    mode = "Active"
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.lambda_basic,
+    aws_iam_role_policy_attachment.lambda_vpc,
+    aws_iam_role_policy_attachment.lambda_xray,
+    aws_vpc_endpoint.s3,
+    aws_vpc_endpoint.dynamodb
+  ]
+
+  tags = {
+    EvidenceFor = "GAP-05-GAP-06-GAP-07"
+  }
 }
 
 ######################################################################

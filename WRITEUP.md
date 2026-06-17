@@ -17,10 +17,10 @@ The capstone uses `us-east-1`, a single AWS sandbox account, and an S3 evidence 
 | GAP-03 | 164.312(e)(1) | S3 uploads bucket denies non-TLS requests using `aws:SecureTransport=false`. |
 | GAP-04 | 164.308(a)(7) | S3 uploads bucket has versioning enabled for recoverability. |
 | GAP-05 | 164.312(e)(1) | Lambda runs in the starter VPC private subnets with S3/DynamoDB gateway endpoints. |
-| GAP-06 | 164.312(b) | Lambda uses reserved concurrency, DLQ, and X-Ray tracing. |
+| GAP-06 | 164.312(b) | Lambda uses a DLQ and X-Ray tracing. Reserved concurrency was intentionally not configured because the sandbox account could not allocate it without reducing unreserved account concurrency below AWS minimums. |
 | GAP-07 | 164.312(a)(1) | Lambda IAM policy removes `dynamodb:*` and `s3:*` in favor of least-privilege actions. |
 
-GAP-08 was deferred. API Gateway logging, throttling, and WAF are reasonable next-sprint controls, but this submission prioritizes the most material PHI storage, access, encryption, and evidence-chain gaps.
+GAP-06 was partially remediated: DLQ and X-Ray tracing were implemented, while reserved concurrency was deferred due to AWS sandbox account concurrency limits. GAP-08 was deferred. API Gateway logging, throttling, and WAF are reasonable next-sprint controls, but this submission prioritizes the most material PHI storage, access, encryption, and evidence-chain gaps.
 
 ## Policy suite
 

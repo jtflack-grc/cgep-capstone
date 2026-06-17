@@ -1,0 +1,198 @@
+{
+  "component-definition": {
+    "uuid": "0d80328f-32c7-408b-88f0-9c4613f9ed9b",
+    "metadata": {
+      "title": "Acme Health Patient Intake API \u2014 CGE-P Capstone Component",
+      "last-modified": "2026-06-17T21:37:33.863909+00:00",
+      "version": "1.0.0",
+      "oscal-version": "1.1.3",
+      "parties": [
+        {
+          "uuid": "c7448282-1182-47b1-a11c-3c5804b02aef",
+          "type": "organization",
+          "name": "Acme Health / John Flack CGE-P Capstone"
+        }
+      ]
+    },
+    "components": [
+      {
+        "uuid": "76f79b46-d759-4a04-b4d5-91dfaeab9257",
+        "type": "software",
+        "title": "Acme Health Patient Intake API governed baseline",
+        "description": "Terraform, policy-as-code, GitHub Actions, signed evidence, and OSCAL wrapper around the CGE-P patient intake starter workload.",
+        "purpose": "Make the inherited patient intake API audit-defensible under the HIPAA Security Rule without rewriting the application.",
+        "control-implementations": [
+          {
+            "uuid": "72cdf456-01b0-40c0-bf52-da96bcc4aa3f",
+            "source": "https://csrc.nist.gov/pubs/sp/800/66/r2/final",
+            "description": "HIPAA Security Rule implementation statements using NIST SP 800-66 Rev. 2 as the HIPAA implementation reference. HIPAA section IDs are carried as control-id values and props.",
+            "implemented-requirements": [
+              {
+                "uuid": "3a15e1d2-7e28-4e11-be1f-f0677c72ac36",
+                "control-id": "hipaa-164.312-a-2-iv",
+                "description": "PHI at rest is protected with customer-managed KMS keys for S3 uploads and DynamoDB submissions.",
+                "props": [
+                  {
+                    "name": "framework",
+                    "value": "HIPAA Security Rule"
+                  },
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_kms_key.phi"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_server_side_encryption_configuration.uploads"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_dynamodb_table.intake"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-751a9402/runs/27720750348/evidence-27720750348-9b6f9ed4e03bab411ec7f9a5e85688cc105bb089.tar.gz",
+                    "text": "Signed GitHub Actions evidence bundle containing plan.json, opa-results.json, state.json/apply context, signature, and receipt."
+                  }
+                ]
+              },
+              {
+                "uuid": "137875ab-e838-4ec0-b9cb-71248366fbd4",
+                "control-id": "hipaa-164.312-e-1",
+                "description": "S3 uploads deny non-TLS requests and the Lambda runs inside the starter VPC private subnets with AWS service endpoints.",
+                "props": [
+                  {
+                    "name": "framework",
+                    "value": "HIPAA Security Rule"
+                  },
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_policy.uploads_tls_only"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_lambda_function.intake"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_vpc_endpoint.s3"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_vpc_endpoint.dynamodb"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-751a9402/runs/27720750348/evidence-27720750348-9b6f9ed4e03bab411ec7f9a5e85688cc105bb089.tar.gz",
+                    "text": "Signed GitHub Actions evidence bundle containing plan.json, opa-results.json, state.json/apply context, signature, and receipt."
+                  }
+                ]
+              },
+              {
+                "uuid": "79eaf385-1aaf-4d2d-829f-e14acb117579",
+                "control-id": "hipaa-164.308-a-7",
+                "description": "S3 uploads enable versioning to support recoverability of PHI objects.",
+                "props": [
+                  {
+                    "name": "framework",
+                    "value": "HIPAA Security Rule"
+                  },
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_versioning.uploads"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-751a9402/runs/27720750348/evidence-27720750348-9b6f9ed4e03bab411ec7f9a5e85688cc105bb089.tar.gz",
+                    "text": "Signed GitHub Actions evidence bundle containing plan.json, opa-results.json, state.json/apply context, signature, and receipt."
+                  }
+                ]
+              },
+              {
+                "uuid": "9b398bce-9f2e-4ecd-9e01-cad44abc72ba",
+                "control-id": "hipaa-164.312-a-1",
+                "description": "The Lambda execution role uses least-privilege permissions instead of dynamodb:* and s3:*.",
+                "props": [
+                  {
+                    "name": "framework",
+                    "value": "HIPAA Security Rule"
+                  },
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_iam_role_policy.lambda_inline"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-751a9402/runs/27720750348/evidence-27720750348-9b6f9ed4e03bab411ec7f9a5e85688cc105bb089.tar.gz",
+                    "text": "Signed GitHub Actions evidence bundle containing plan.json, opa-results.json, state.json/apply context, signature, and receipt."
+                  }
+                ]
+              },
+              {
+                "uuid": "c212f73b-5a3a-4c22-b304-8d069fedb257",
+                "control-id": "hipaa-164.312-b",
+                "description": "Audit controls are supported by multi-region CloudTrail, log-file validation, Lambda tracing, and signed immutable pipeline evidence.",
+                "props": [
+                  {
+                    "name": "framework",
+                    "value": "HIPAA Security Rule"
+                  },
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_cloudtrail.management"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket.evidence_vault"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_object_lock_configuration.evidence_vault"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_lambda_function.intake"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-751a9402/runs/27720750348/evidence-27720750348-9b6f9ed4e03bab411ec7f9a5e85688cc105bb089.tar.gz",
+                    "text": "Signed GitHub Actions evidence bundle containing plan.json, opa-results.json, state.json/apply context, signature, and receipt."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

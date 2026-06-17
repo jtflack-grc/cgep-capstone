@@ -50,11 +50,11 @@ component = {
         "source": source,
         "description": "HIPAA Security Rule implementation statements using NIST SP 800-66 Rev. 2 as the HIPAA implementation reference. HIPAA section IDs are carried as control-id values and props.",
         "implemented-requirements": [
-          req("164.312(a)(2)(iv)", "PHI at rest is protected with customer-managed KMS keys for S3 uploads and DynamoDB submissions.", ["aws_kms_key.phi", "aws_s3_bucket_server_side_encryption_configuration.uploads", "aws_dynamodb_table.intake"]),
-          req("164.312(e)(1)", "S3 uploads deny non-TLS requests and the Lambda runs inside the starter VPC private subnets with AWS service endpoints.", ["aws_s3_bucket_policy.uploads_tls_only", "aws_lambda_function.intake", "aws_vpc_endpoint.s3", "aws_vpc_endpoint.dynamodb"]),
-          req("164.308(a)(7)", "S3 uploads enable versioning to support recoverability of PHI objects.", ["aws_s3_bucket_versioning.uploads"]),
-          req("164.312(a)(1)", "The Lambda execution role uses least-privilege permissions instead of dynamodb:* and s3:*.", ["aws_iam_role_policy.lambda_inline"]),
-          req("164.312(b)", "Audit controls are supported by multi-region CloudTrail, log-file validation, Lambda tracing, and signed immutable pipeline evidence.", ["aws_cloudtrail.management", "aws_s3_bucket.evidence_vault", "aws_s3_bucket_object_lock_configuration.evidence_vault", "aws_lambda_function.intake"])
+          req("hipaa-164.312-a-2-iv", "PHI at rest is protected with customer-managed KMS keys for S3 uploads and DynamoDB submissions.", ["aws_kms_key.phi", "aws_s3_bucket_server_side_encryption_configuration.uploads", "aws_dynamodb_table.intake"]),
+          req("hipaa-164.312-e-1", "S3 uploads deny non-TLS requests and the Lambda runs inside the starter VPC private subnets with AWS service endpoints.", ["aws_s3_bucket_policy.uploads_tls_only", "aws_lambda_function.intake", "aws_vpc_endpoint.s3", "aws_vpc_endpoint.dynamodb"]),
+          req("hipaa-164.308-a-7", "S3 uploads enable versioning to support recoverability of PHI objects.", ["aws_s3_bucket_versioning.uploads"]),
+          req("hipaa-164.312-a-1", "The Lambda execution role uses least-privilege permissions instead of dynamodb:* and s3:*.", ["aws_iam_role_policy.lambda_inline"]),
+          req("hipaa-164.312-b", "Audit controls are supported by multi-region CloudTrail, log-file validation, Lambda tracing, and signed immutable pipeline evidence.", ["aws_cloudtrail.management", "aws_s3_bucket.evidence_vault", "aws_s3_bucket_object_lock_configuration.evidence_vault", "aws_lambda_function.intake"])
         ]
       }]
     }]
@@ -72,7 +72,7 @@ profile = {
     },
     "imports": [{
       "href": source,
-      "include-controls": [{"with-ids": ["164.312(a)(2)(iv)", "164.312(e)(1)", "164.308(a)(7)", "164.312(a)(1)", "164.312(b)"]}]
+      "include-all": {}
     }],
     "merge": {"as-is": True}
   }

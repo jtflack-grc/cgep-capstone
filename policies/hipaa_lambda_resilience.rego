@@ -1,5 +1,7 @@
 package cgep.hipaa.lambda_resilience
 
+import rego.v1
+
 # METADATA
 # title: GAP-06 — Lambda needs reserved concurrency, DLQ, and X-Ray tracing
 # custom:

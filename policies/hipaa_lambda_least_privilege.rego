@@ -1,5 +1,7 @@
 package cgep.hipaa.lambda_least_privilege
 
+import rego.v1
+
 # METADATA
 # title: GAP-07 — Lambda IAM policy must be least privilege
 # custom:

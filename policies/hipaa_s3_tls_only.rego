@@ -1,5 +1,7 @@
 package cgep.hipaa.s3_tls_only
 
+import rego.v1
+
 # METADATA
 # title: GAP-03 — S3 uploads bucket must deny non-TLS requests
 # custom:

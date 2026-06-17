@@ -1,5 +1,7 @@
 package cgep.hipaa.lambda_vpc
 
+import rego.v1
+
 # METADATA
 # title: GAP-05 — Lambda must run inside the starter VPC
 # custom:

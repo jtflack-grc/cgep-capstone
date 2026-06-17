@@ -1,5 +1,7 @@
 package cgep.hipaa.s3_sse_kms
 
+import rego.v1
+
 # METADATA
 # title: GAP-01 — S3 uploads bucket must use SSE-KMS with customer CMK
 # custom:

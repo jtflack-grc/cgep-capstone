@@ -1,5 +1,7 @@
 package cgep.hipaa.dynamodb_cmk
 
+import rego.v1
+
 # METADATA
 # title: GAP-02 — DynamoDB intake table must use customer CMK
 # custom:

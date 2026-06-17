@@ -1,5 +1,7 @@
 package cgep.hipaa.s3_versioning
 
+import rego.v1
+
 # METADATA
 # title: GAP-04 — S3 uploads bucket must enable versioning
 # custom:
